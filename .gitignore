@@ -1,0 +1,14 @@
+# Secrets and local credentials
+.env
+.env.*
+!.env.example
+upstox_token.txt
+
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Logs and generated files
+*.log

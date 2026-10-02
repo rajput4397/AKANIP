@@ -1,0 +1,10 @@
+{
+    "settings": {
+        "append_today_prices": false
+    },
+    "strategies": {
+        "check_above_ema_20": true,
+        "check_volume_price_spike": true,
+        "check_ema_touch_downtrend": false
+    }
+}

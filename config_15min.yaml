@@ -1,0 +1,40 @@
+scans:
+  - name: Russell 3000 15-minute
+    provider: yfinance
+    csv_path: russell3000.csv
+    ticker_column: TICKER
+    interval: 15min
+    history_days: 59
+    strategies:
+      - function: check_above_ema_20
+        parameters:
+          min_price_increase_pct: 0.5
+          min_average_volume: 50000
+          volume_lookback: 70
+          ema_proximity_pct: 1.5
+      - function: check_volume_price_spike
+        parameters:
+          min_price_increase_pct: 0.5
+          volume_multiplier: 2
+          volume_lookback: 26
+
+  - name: NSE equities 15-minute
+    provider: upstox
+    csv_path: nse_codes.csv
+    instrument_key_column: instrument_key
+    interval: 15min
+    history_days: 29
+    token_path: upstox_token.txt
+    include_today_intraday: false
+    strategies:
+      - function: check_above_ema_20
+        parameters:
+          min_price_increase_pct: 0.5
+          min_average_volume: 10000
+          volume_lookback: 70
+          ema_proximity_pct: 1.5
+      - function: check_volume_price_spike
+        parameters:
+          min_price_increase_pct: 0.5
+          volume_multiplier: 2
+          volume_lookback: 26
