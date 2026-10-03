@@ -20,8 +20,9 @@ scans:
 
   - name: NSE equities 15-minute
     provider: upstox
-    csv_path: nse_codes.csv
+    csv_path: indian.csv
     instrument_key_column: instrument_key
+    stock_column: stock
     interval: 15min
     history_days: 29
     token_path: upstox_token.txt

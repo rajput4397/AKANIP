@@ -1,0 +1,18 @@
+scans:
+  - name: NSE options 15-minute
+    provider: upstox
+    csv_path: indian_options.csv
+    instrument_key_column: instrument_key
+    stock_column: stock
+    interval: 15min
+    history_days: 29
+    include_today_intraday: false
+    strategies:
+      - function: check_dynamic_price_volume_spike
+        parameters:
+          lookback: 50
+          price_multiplier: 2.2
+          volume_multiplier: 2.2
+      - function: check_ema20_bearish_rejection
+        parameters:
+          proximity_threshold: 0.005

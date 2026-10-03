@@ -143,6 +143,7 @@ def append_today_live_candle(df, instrument_key, access_token, interval):
 
     return pd.concat([df, pd.DataFrame([today_row])], ignore_index=True)
 
+
 def run_scan(scan, config_path):
     scan_name = scan.get("name", scan["csv_path"])
     interval = normalize_interval(scan.get("interval", "daily"))
@@ -172,12 +173,26 @@ def run_scan(scan, config_path):
         )
     if key_col not in df_csv.columns:
         raise ValueError(f"Scan '{scan_name}': column '{key_col}' not found in {csv_path}")
-    instrument_keys = list(dict.fromkeys(
-        key for key in df_csv[key_col].dropna().astype(str).str.strip().tolist()
-        if key.startswith("NSE_EQ")
-    ))
+
+    stock_col = scan.get("stock_column")
+    if stock_col is not None and stock_col not in df_csv.columns:
+        raise ValueError(f"Scan '{scan_name}': column '{stock_col}' not found in {csv_path}")
+
+    key_to_stock = {}
+    for _, row in df_csv.iterrows():
+        instrument_value = row.get(key_col)
+        if pd.isna(instrument_value):
+            continue
+        instrument_key = str(instrument_value).strip()
+        if not instrument_key:
+            continue
+        stock_value = row.get(stock_col) if stock_col else None
+        display_name = str(stock_value).strip() if pd.notna(stock_value) and str(stock_value).strip() else instrument_key
+        key_to_stock[instrument_key] = display_name
+
+    instrument_keys = list(dict.fromkeys(key_to_stock.keys()))
     if not instrument_keys:
-        raise ValueError(f"Scan '{scan_name}': no NSE_EQ instrument keys found in {csv_path}")
+        raise ValueError(f"Scan '{scan_name}': no instrument keys found in {csv_path}")
 
     default_history_days = {"daily": 365, "weekly": 3650, "15min": 29, "monthly": 3650}
     maximum_history_days = {"daily": 365, "weekly": 3650, "15min": 29, "monthly": 3650}
@@ -194,12 +209,15 @@ def run_scan(scan, config_path):
     today = datetime.today().date()
     to_date = (today - timedelta(days=1)).strftime('%Y-%m-%d')
     from_date = (today - timedelta(days=history_days)).strftime('%Y-%m-%d')
+
     log.info(
         f"Starting Upstox scan '{scan_name}' with {len(instrument_keys)} instruments, "
-        f"interval={interval}, history_days={history_days}, include_today_intraday={append_live}."
+        f"interval={interval}, history_days={history_days}, to_date={to_date}, "
+        f"include_today_intraday={append_live}."
     )
 
     for key in instrument_keys:
+        display_name = key_to_stock.get(key, key)
         df = get_upstox_historical_data(key, from_date, to_date, access_token, interval)
         if df is not None:
             if interval == "15min":
@@ -214,8 +232,13 @@ def run_scan(scan, config_path):
             for function_name, func, parameters in strategies:
                 is_match, ltp = func(df, **parameters)
                 if is_match and ltp is not None:
-                    log.info(f"[MATCH FOUND] {scan_name}: {key} passed {function_name} | LTP: {round(ltp, 2)}")
-                    results[function_name].append((key, round(ltp, 2)))
+                    candle_time = pd.Timestamp(df['Date'].iloc[-1])
+                    candle_label = candle_time.strftime('%Y-%m-%d %H:%M:%S')
+                    log.info(
+                        f"[MATCH FOUND] {scan_name}: {display_name} ({key}) passed {function_name} "
+                        f"| LTP: {round(ltp, 2)} | Candle: {candle_label}"
+                    )
+                    results[function_name].append((display_name, round(ltp, 2), candle_time))
         time.sleep(0.15)
 
     summary_message = "\n" + "=" * 50 + "\n"
@@ -226,11 +249,15 @@ def run_scan(scan, config_path):
         if not matched_stocks:
             summary_message += "No stocks matched this criteria.\n"
         else:
-            for key, price in matched_stocks:
-                summary_message += f"  - {key} (LTP: {price})\n"
+            for symbol, price, trigger_time in matched_stocks:
+                if trigger_time is not None:
+                    summary_message += f"  - {symbol} (LTP: {price}, Candle: {trigger_time.strftime('%Y-%m-%d %H:%M:%S')})\n"
+                else:
+                    summary_message += f"  - {symbol} (LTP: {price})\n"
         summary_message += "-" * 50 + "\n"
     print(summary_message)
     log.info(summary_message)
+    return summary_message
 
 
 def main():

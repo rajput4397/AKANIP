@@ -98,6 +98,7 @@ def run_scan(scan, config_path):
         summary_message += "-" * 50 + "\n"
     print(summary_message)
     log.info(summary_message)
+    return summary_message
 
 
 def main():

@@ -18,8 +18,9 @@ scans:
 
   - name: NSE equities
     provider: upstox
-    csv_path: nse_codes.csv
+    csv_path: indian.csv
     instrument_key_column: instrument_key
+    stock_column: stock
     interval: daily
     token_path: upstox_token.txt
     include_today_intraday: false

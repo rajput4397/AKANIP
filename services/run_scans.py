@@ -5,6 +5,7 @@ from pathlib import Path
 import yaml
 
 from _utils.logger_config import setup_logging
+from services.telegram_alert import send_telegram_alert
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -57,7 +58,9 @@ def run_scans(config_path=None, provider_filter=None):
 
         try:
             log.info(f"Running scan '{scan_name}' using {provider}")
-            scan_runners[provider](scan, config_path)
+            summary = scan_runners[provider](scan, config_path)
+            if summary:
+                send_telegram_alert(summary)
             run_count += 1
         except Exception as error:
             log.exception(f"Scan '{scan_name}' failed: {error}")
@@ -65,7 +68,9 @@ def run_scans(config_path=None, provider_filter=None):
 
     if provider_filter and run_count == 0 and failure_count == 0:
         raise ValueError(f"No scans configured for provider '{provider_filter}'")
-    log.info(f"Configured scan run complete: {run_count} succeeded, {failure_count} failed")
+    final_summary = f"AKANIP scan run complete: {run_count} succeeded, {failure_count} failed"
+    log.info(final_summary)
+    send_telegram_alert(final_summary)
     return run_count, failure_count
 
 

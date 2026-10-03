@@ -50,8 +50,7 @@ def load_strategies(strategy_configs, interval, logger, scan_name):
             continue
 
         parameters = dict(parameters)
-        if function_name == "check_above_ema_20":
-            parameters.setdefault("interval", interval)
+        parameters.setdefault("interval", interval)
         strategies.append((function_name, strategy, parameters))
         logger.info(f"Loaded strategy for {scan_name}: {function_name}")
 
