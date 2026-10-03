@@ -1,6 +1,7 @@
 import argparse
 import time
 import logging
+import os
 import requests
 import urllib.parse
 import pandas as pd
@@ -152,14 +153,16 @@ def run_scan(scan, config_path):
         raise ValueError(f"Scan '{scan_name}': include_today_intraday must be true or false")
     strategies = load_strategies(scan.get("strategies", []), interval, log, scan_name)
 
+    access_token = os.getenv("UPSTOX_TOKEN", "").strip()
     token_path = Path(scan.get("token_path", "upstox_token.txt")).expanduser()
     if not token_path.is_absolute():
         token_path = config_path.parent / token_path
-    if not token_path.is_file():
-        raise ValueError(f"Scan '{scan_name}': token file not found: {token_path}")
-    access_token = token_path.read_text(encoding="utf-8").strip()
+    if not access_token and token_path.is_file():
+        access_token = token_path.read_text(encoding="utf-8").strip()
     if not access_token:
-        raise ValueError(f"Scan '{scan_name}': token file is empty: {token_path}")
+        raise ValueError(
+            f"Scan '{scan_name}': configure UPSTOX_TOKEN or provide a token file at {token_path}"
+        )
 
     csv_path = Path(scan["csv_path"]).expanduser()
     if not csv_path.is_absolute():
