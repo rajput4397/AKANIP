@@ -6,7 +6,7 @@ scans:
     stock_column: stock
     interval: 15min
     history_days: 29
-    include_today_intraday: false
+    include_today_intraday: true
     strategies:
       - function: check_dynamic_price_volume_spike
         parameters:

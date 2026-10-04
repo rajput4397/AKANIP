@@ -1,9 +1,11 @@
-name: Options Scan
+name: Options Scan 15min
 
 on:
   schedule:
-    # 09:30 UTC is 15:00 IST, Monday through Friday.
-    - cron: "30 9 * * 1-5"
+    # GitHub cron uses UTC. These run at 09:28, then every 15 minutes through 15:13 IST.
+    - cron: "58 3 * * 1-5"
+    - cron: "13,28,43,58 4-8 * * 1-5"
+    - cron: "13,28,43 9 * * 1-5"
   workflow_dispatch:
 
 permissions:
@@ -25,9 +27,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run daily Upstox scan
+      - name: Run 15-minute Upstox scan
         env:
           UPSTOX_TOKEN: ${{ secrets.UPSTOX_TOKEN }}
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
-        run: python -m services.run_scans --config config_options_daily.yaml
+        run: python -m services.run_scans --config config_options_15min.yaml
