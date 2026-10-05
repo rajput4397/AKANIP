@@ -67,6 +67,64 @@ def check_above_ema_20(
     return False, None
 
 
+def check_above_ema_20_stable_three_day_price(
+    df,
+    interval='daily',
+    max_three_day_change_pct=3,
+    min_average_volume=500000,
+    volume_lookback=70,
+    ema_proximity_pct=1.5,
+):
+    """Check daily EMA conditions while limiting the close change from t-3 to t."""
+    if df is None or df.empty:
+        return False, None
+    if interval != 'daily':
+        raise ValueError("check_above_ema_20_stable_three_day_price requires daily candles")
+    if volume_lookback <= 0:
+        raise ValueError("volume_lookback must be positive")
+
+    working_df = df.copy()
+    periods = [20, 50, 100, 200]
+    minimum_rows = max(max(periods) + 1, volume_lookback + 1, 4, 250)
+    if len(working_df) < minimum_rows:
+        return False, None
+
+    for period in periods:
+        working_df[f'EMA_{period}'] = working_df['Close'].ewm(span=period, adjust=False).mean()
+
+    latest = working_df.iloc[-1]
+    previous = working_df.iloc[-2]
+    reference_close = working_df['Close'].iloc[-4]
+    if pd.isna(reference_close) or reference_close == 0:
+        return False, None
+
+    slope_positive = all(latest[f'EMA_{period}'] > previous[f'EMA_{period}'] for period in periods)
+    ema_stacked = all(
+        latest[f'EMA_{short_period}'] > latest[f'EMA_{long_period}']
+        for short_period, long_period in zip(periods, periods[1:])
+    )
+    price_near_ema = latest['Close'] >= latest['EMA_20'] * (1 - ema_proximity_pct / 100)
+    average_volume = working_df['Volume'].iloc[-volume_lookback:].mean()
+    volume_condition = average_volume >= min_average_volume
+    t_to_t_minus_3_change_pct = abs((latest['Close'] - reference_close) / reference_close) * 100
+    stable_price_condition = t_to_t_minus_3_change_pct <= max_three_day_change_pct
+
+    if not (slope_positive and ema_stacked and price_near_ema and volume_condition and stable_price_condition):
+        return False, None
+
+    df_weekly = working_df.resample('W-FRI', on='Date').agg({
+        'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last'
+    }).dropna()
+    if len(df_weekly) < 2:
+        return False, None
+
+    last_week = df_weekly.iloc[-2]
+    week_positive = last_week['Close'] > last_week['Open']
+    if week_positive:
+        return True, latest['Close']
+    return False, None
+
+
 
 def check_dynamic_price_volume_spike(
     df,

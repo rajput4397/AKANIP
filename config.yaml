@@ -10,28 +10,28 @@ scans:
           min_price_increase_pct: 3
           min_average_volume: 500000
           volume_lookback: 70
-      - function: check_volume_price_spike
+      - function: check_above_ema_20_stable_three_day_price
         parameters:
-          min_price_increase_pct: 6
-          volume_multiplier: 2
-          volume_lookback: 44
-
-  - name: NSE equities
-    provider: upstox
-    csv_path: indian.csv
-    instrument_key_column: instrument_key
-    stock_column: stock
-    interval: daily
-    token_path: upstox_token.txt
-    include_today_intraday: false
-    strategies:
-      - function: check_above_ema_20
-        parameters:
-          min_price_increase_pct: 3
+          max_three_day_change_pct: 3
           min_average_volume: 500000
           volume_lookback: 70
-      - function: check_volume_price_spike
-        parameters:
-          min_price_increase_pct: 6
-          volume_multiplier: 2
-          volume_lookback: 44
+
+  # - name: NSE equities
+  #   provider: upstox
+  #   csv_path: indian.csv
+  #   instrument_key_column: instrument_key
+  #   stock_column: stock
+  #   interval: daily
+  #   token_path: upstox_token.txt
+  #   include_today_intraday: false
+  #   strategies:
+  #     - function: check_above_ema_20
+  #       parameters:
+  #         min_price_increase_pct: 3
+  #         min_average_volume: 500000
+  #         volume_lookback: 70
+  #     - function: check_volume_price_spike
+  #       parameters:
+  #         min_price_increase_pct: 6
+  #         volume_multiplier: 2
+  #         volume_lookback: 44

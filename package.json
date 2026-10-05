@@ -1,0 +1,22 @@
+{
+  "name": "akanip-cloudflare-options-scanner",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare:assets": "node scripts/prepare-cloudflare-assets.js",
+    "dev": "npm run prepare:assets && wrangler dev",
+    "deploy": "npm run prepare:assets && wrangler deploy",
+    "dry-run": "npm run prepare:assets && wrangler deploy --dry-run"
+  },
+  "dependencies": {
+    "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "workerd@1.20261001.1": true
+  }
+}

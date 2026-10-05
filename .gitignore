@@ -10,5 +10,12 @@ venv/
 __pycache__/
 *.py[cod]
 
+# Cloudflare Worker build output
+.wrangler/
+node_modules/
+.cloudflare-assets/
+python_modules/
+pylock.toml
+
 # Logs and generated files
 *.log

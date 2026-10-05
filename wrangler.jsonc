@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "akanip-options-scanner",
+  "main": "cloudflare_worker.js",
+  "compatibility_date": "2026-10-05",
+  "assets": {
+    "directory": "./.cloudflare-assets",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "triggers": {
+    "crons": [
+      "30 9 * * MON-FRI",
+      "58 3 * * MON-FRI",
+      "13,28,43,58 4-8 * * MON-FRI",
+      "13,28,43 9 * * MON-FRI"
+    ]
+  },
+  "limits": {
+    "cpu_ms": 300000
+  }
+}
