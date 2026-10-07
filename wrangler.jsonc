@@ -4,7 +4,7 @@
   "main": "cloudflare_worker.js",
   "compatibility_date": "2026-10-05",
   "build": {
-    "command": "node prepare.mjs"
+    "command": "node scripts/prepare-cloudflare-assets.js"
   },
   "assets": {
     "directory": "./.cloudflare-assets",
