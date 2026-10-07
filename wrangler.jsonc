@@ -3,6 +3,9 @@
   "name": "akanip-options-scanner",
   "main": "cloudflare_worker.js",
   "compatibility_date": "2026-10-05",
+  "build": {
+    "command": "node prepare.mjs"
+  },
   "assets": {
     "directory": "./.cloudflare-assets",
     "binding": "ASSETS",
@@ -10,7 +13,7 @@
   },
   "triggers": {
     "crons": [
-          "*/15 3-9 * * MON-FRI"
-        ]
+      "*/15 3-9 * * MON-FRI"
+    ]
   }
 }
