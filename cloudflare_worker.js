@@ -410,6 +410,15 @@ export default {
 
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === "/") {
+      return new Response(
+        "AKANIP Options Scanner is running. Scheduled scans are triggered by Cloudflare Cron; use POST /run for manual execution.",
+        {
+          status: 200,
+          headers: { "Content-Type": "text/plain; charset=utf-8" },
+        },
+      );
+    }
     if (url.pathname !== "/run") return new Response("Not found", { status: 404 });
     if (request.method !== "POST") return new Response("Method not allowed", { status: 405 });
 
