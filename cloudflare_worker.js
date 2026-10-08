@@ -1,11 +1,9 @@
 import { parse } from "yaml";
 
 const IST_OFFSET_MS = 330 * 60 * 1000;
-const DAILY_CRON = "30 9 * * MON-FRI";
+const DAILY_CRON = "20 9 * * MON-FRI";
 const INTRADAY_CRONS = new Set([
-  "58 3 * * MON-FRI",
-  "13,28,43,58 4-8 * * MON-FRI",
-  "13,28,43 9 * * MON-FRI",
+  "*/15 4-9 * * MON-FRI",
 ]);
 const CONFIGS = {
   daily: "config_options_daily.yaml",
