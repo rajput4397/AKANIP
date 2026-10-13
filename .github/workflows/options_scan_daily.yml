@@ -1,0 +1,32 @@
+name: Options Scan Daily
+
+on:
+  schedule:
+    # 09:27 UTC is ~2:57 PM IST, Monday through Friday.
+    - cron: "27 9 * * MON-FRI"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run daily Upstox options scan
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+        run: python -m services.run_scans --config config_options_daily.yaml
