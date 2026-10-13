@@ -2,11 +2,9 @@ name: Options Scan 15min
 
 on:
   schedule:
-    # GitHub cron uses UTC. These run at 09:28, then every 15 minutes through 15:13 IST,
-    # offset from :00/:15/:30/:45 to avoid GitHub Actions' top-of-hour scheduling load.
-    - cron: "58 3 * * MON-FRI"
-    - cron: "13,28,43,58 4-8 * * MON-FRI"
-    - cron: "13,28,43 9 * * MON-FRI"
+    # GitHub cron uses UTC. 4:00-8:45 UTC + 9:00-9:30 UTC = 9:30 AM-3:00 PM IST, every 15 min.
+    - cron: "*/15 4-8 * * MON-FRI"
+    - cron: "0,15,30 9 * * MON-FRI"
   workflow_dispatch:
 
 permissions:
