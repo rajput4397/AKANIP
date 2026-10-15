@@ -67,6 +67,104 @@ def check_above_ema_20(
     return False, None
 
 
+def check_above_ema_50(
+    df,
+    interval='daily',
+    min_price_increase_pct=3,
+    volume_multiplier=1.5,
+    volume_lookback=70,
+    ema_proximity_pct=1.5,
+):
+    """Check EMA trend, today's price increase, and today's volume spike.
+
+    Same as check_above_ema_20, but with no condition on EMA_20, no weekly/monthly
+    follow-through check, and volume compared as a multiplier of its trailing
+    average (excluding today) instead of an absolute floor."""
+    if df is None or df.empty:
+        return False, None
+    if volume_lookback <= 0:
+        raise ValueError("volume_lookback must be positive")
+
+    working_df = df.copy()
+
+    periods = [50, 100, 200]
+    minimum_rows = max(max(periods) + 1, volume_lookback + 1)
+    if interval == 'daily':
+        minimum_rows = max(minimum_rows, 250)
+    if len(working_df) < minimum_rows:
+        return False, None
+
+    for period in periods:
+        working_df[f'EMA_{period}'] = working_df['Close'].ewm(span=period, adjust=False).mean()
+
+    latest = working_df.iloc[-1]
+    previous = working_df.iloc[-2]
+    slope_positive = all(latest[f'EMA_{period}'] > previous[f'EMA_{period}'] for period in periods)
+    ema_stacked = all(
+        latest[f'EMA_{short_period}'] > latest[f'EMA_{long_period}']
+        for short_period, long_period in zip(periods, periods[1:])
+    )
+    fastest_ema = periods[0]
+    price_near_ema = latest['Close'] >= latest[f'EMA_{fastest_ema}'] * (1 - ema_proximity_pct / 100)
+    average_volume = working_df['Volume'].iloc[-(volume_lookback + 1):-1].mean()
+    volume_condition = latest['Volume'] >= volume_multiplier * average_volume
+    price_increase_pct = (latest['Close'] - previous['Close']) / previous['Close'] * 100
+    increase_condition = price_increase_pct >= min_price_increase_pct
+
+    if slope_positive and ema_stacked and price_near_ema and volume_condition and increase_condition:
+        return True, latest['Close']
+    return False, None
+
+
+def check_above_ema_100(
+    df,
+    interval='daily',
+    min_price_increase_pct=3,
+    volume_multiplier=1.5,
+    volume_lookback=70,
+    ema_proximity_pct=1.5,
+):
+    """Check EMA trend, today's price increase, and today's volume spike.
+
+    Same as check_above_ema_20, but with no condition on EMA_20 or EMA_50, no
+    weekly/monthly follow-through check, and volume compared as a multiplier
+    of its trailing average (excluding today) instead of an absolute floor."""
+    if df is None or df.empty:
+        return False, None
+    if volume_lookback <= 0:
+        raise ValueError("volume_lookback must be positive")
+
+    working_df = df.copy()
+
+    periods = [100, 200]
+    minimum_rows = max(max(periods) + 1, volume_lookback + 1)
+    if interval == 'daily':
+        minimum_rows = max(minimum_rows, 250)
+    if len(working_df) < minimum_rows:
+        return False, None
+
+    for period in periods:
+        working_df[f'EMA_{period}'] = working_df['Close'].ewm(span=period, adjust=False).mean()
+
+    latest = working_df.iloc[-1]
+    previous = working_df.iloc[-2]
+    slope_positive = all(latest[f'EMA_{period}'] > previous[f'EMA_{period}'] for period in periods)
+    ema_stacked = all(
+        latest[f'EMA_{short_period}'] > latest[f'EMA_{long_period}']
+        for short_period, long_period in zip(periods, periods[1:])
+    )
+    fastest_ema = periods[0]
+    price_near_ema = latest['Close'] >= latest[f'EMA_{fastest_ema}'] * (1 - ema_proximity_pct / 100)
+    average_volume = working_df['Volume'].iloc[-(volume_lookback + 1):-1].mean()
+    volume_condition = latest['Volume'] >= volume_multiplier * average_volume
+    price_increase_pct = (latest['Close'] - previous['Close']) / previous['Close'] * 100
+    increase_condition = price_increase_pct >= min_price_increase_pct
+
+    if slope_positive and ema_stacked and price_near_ema and volume_condition and increase_condition:
+        return True, latest['Close']
+    return False, None
+
+
 def check_above_ema_20_stable_three_day_price(
     df,
     interval='daily',
