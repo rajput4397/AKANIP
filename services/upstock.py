@@ -3,7 +3,7 @@ import urllib.parse
 import requests
 
 # Fill in your details from Upstox Developer Console
-API_KEY = 'a0a0c732-d59c-4774-9a8d-5c9defd7d443'#os.environ.get("UPSTOX_API_KEY")
+API_KEY = 'a0a0c732-d59c-4774-9a8d-5c9defd7d443' #os.environ.get("UPSTOX_API_KEY")
 API_SECRET = '7il8yoi5w8' #os.environ.get("UPSTOX_API_SECRET")
 if not API_KEY or not API_SECRET:
     raise SystemExit("Set UPSTOX_API_KEY and UPSTOX_API_SECRET environment variables.")

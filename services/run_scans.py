@@ -27,10 +27,12 @@ def run_scans(config_path=None, provider_filter=None):
 
     from services.upstock_api import run_scan as run_upstox_scan
     from services.yfinance import run_scan as run_yfinance_scan
+    from services.options_spread_scanner import run_scan as run_options_scan
 
     scan_runners = {
         "upstox": run_upstox_scan,
         "yfinance": run_yfinance_scan,
+        "upstox_options": run_options_scan,
     }
     setup_logging()
     log = logging.getLogger(__name__)
