@@ -1,0 +1,32 @@
+name: Sector Strength Daily
+
+on:
+  schedule:
+    # 10:05 UTC is 3:35 PM IST, Monday through Friday (after NSE market close).
+    - cron: "5 10 * * MON-FRI"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run sector strength scan
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+        run: python -m services.sector_strength
