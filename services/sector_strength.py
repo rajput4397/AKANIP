@@ -23,7 +23,7 @@ SECTOR_INDEX_INSTRUMENT_KEYS = {
     "AUTO": "NSE_INDEX|Nifty Auto",
     "BANK": "NSE_INDEX|Nifty Bank",
     "ENERGY": "NSE_INDEX|Nifty Energy",
-    "FINSEREXBNK": "NSE_INDEX|Nifty FinSerExBnk",
+    "FINSERV": "NSE_INDEX|Nifty Fin Service",
     "FMCG": "NSE_INDEX|Nifty FMCG",
     "IT": "NSE_INDEX|Nifty IT",
     "MEDIA": "NSE_INDEX|Nifty Media",
