@@ -16,3 +16,6 @@ scans:
       - function: check_ema20_bearish_rejection
         parameters:
           proximity_threshold: 0.005
+      - function: check_ema20_bullish_support
+        parameters:
+          proximity_threshold: 0.005

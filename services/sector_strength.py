@@ -1,7 +1,9 @@
 import argparse
 import logging
 import os
+import requests
 import time
+import urllib.parse
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -17,8 +19,6 @@ log = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SECTORS_DIR = PROJECT_ROOT / "sectors"
 
-# Upstox instrument_key for each Nifty sectoral index, confirmed against
-# Upstox's published instrument master (assets.upstox.com/.../complete.csv.gz).
 SECTOR_INDEX_INSTRUMENT_KEYS = {
     "AUTO": "NSE_INDEX|Nifty Auto",
     "BANK": "NSE_INDEX|Nifty Bank",
@@ -32,9 +32,10 @@ SECTOR_INDEX_INSTRUMENT_KEYS = {
     "REALTY": "NSE_INDEX|Nifty Realty",
 }
 
-LOOKBACK_DAYS = 20
+# --- DUAL WINDOW CONFIGURATION ---
+TREND_LOOKBACK = 20    # 20-day baseline for medium-term trend
+TRIGGER_LOOKBACK = 5   # 5-day trigger for immediate capital flow
 TRADING_DAYS_PER_YEAR = 252
-TOP_N_SECTORS = 3
 TOP_N_STOCKS = 3
 
 
@@ -48,14 +49,70 @@ def _get_access_token():
     return ""
 
 
+def get_upstox_intraday_data(instrument_key, access_token):
+    encoded_key = urllib.parse.quote(instrument_key, safe='')
+    url = f"https://api.upstox.com/v2/historical-candle/intraday/{encoded_key}/1minute"
+    headers = {
+        'Accept': 'application/json',
+        'Authorization': f'Bearer {access_token}'
+    }
+
+    try:
+        response = requests.get(url, headers=headers, timeout=5)
+        if response.status_code == 200:
+            candles = response.json().get('data', {}).get('candles', [])
+            if not candles:
+                return None
+            df_1m = pd.DataFrame(candles, columns=['Date', 'Open', 'High', 'Low', 'Close', 'Volume', 'OI'])
+            df_1m['Date'] = pd.to_datetime(df_1m['Date'])
+            # Strip timezone to prevent concatenation errors with historical data
+            df_1m['Date'] = df_1m['Date'].dt.tz_localize(None)
+            return df_1m.sort_values('Date').reset_index(drop=True)
+        elif response.status_code == 429:
+            log.warning(f"Rate limited on intraday for {instrument_key}")
+    except Exception as e:
+        log.error(f"Failed to fetch intraday data for {instrument_key}: {e}")
+    return None
+
+
+def append_today_live_candle(df, instrument_key, access_token):
+    intraday = get_upstox_intraday_data(instrument_key, access_token)
+    if intraday is None or intraday.empty:
+        return df
+
+    today_row = {
+        'Date': intraday['Date'].iloc[-1].floor('D'),
+        'Open': intraday['Open'].iloc[0],
+        'High': intraday['High'].max(),
+        'Low': intraday['Low'].min(),
+        'Close': intraday['Close'].iloc[-1],
+        'Volume': intraday['Volume'].sum(),
+        'OI': intraday['OI'].iloc[-1] if 'OI' in intraday.columns else 0,
+    }
+
+    if not df.empty and pd.Timestamp(df['Date'].iloc[-1]).date() == today_row['Date'].date():
+        # If a candle for today already exists in the historical data, overwrite it
+        df = df.iloc[:-1]
+    
+    return pd.concat([df, pd.DataFrame([today_row])], ignore_index=True)
+
+
 def _fetch_history(instrument_key, access_token, lookback_days):
     today = datetime.today().date()
     to_date = (today - timedelta(days=1)).strftime("%Y-%m-%d")
-    # Generous calendar-day buffer so weekends/holidays still leave >= lookback_days rows.
     from_date = (today - timedelta(days=lookback_days * 3)).strftime("%Y-%m-%d")
+    
     df = get_upstox_historical_data(instrument_key, from_date, to_date, access_token, interval="daily")
     if df is None or df.empty:
         return None
+    
+    # Ensure historical dates are timezone-naive
+    if 'Date' in df.columns:
+        df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)
+        
+    # Append the live intraday action to update the final candle
+    df = append_today_live_candle(df, instrument_key, access_token)
+        
     df = df.tail(lookback_days + 1).reset_index(drop=True)
     if len(df) < lookback_days + 1:
         return None
@@ -94,19 +151,28 @@ def _zscore(series):
 
 
 def _sector_var_scores(access_token):
-    scores = {}
+    long_scores = {}
+    short_scores = {}
+    
     for sector, instrument_key in SECTOR_INDEX_INSTRUMENT_KEYS.items():
-        df = _fetch_history(instrument_key, access_token, LOOKBACK_DAYS)
-        if df is None:
+        df_long = _fetch_history(instrument_key, access_token, TREND_LOOKBACK)
+        if df_long is None:
             log.warning(f"Not enough data for sector index {sector} ({instrument_key})")
             continue
-        var = _volatility_adjusted_return(df)
-        if var is None:
-            log.warning(f"Could not compute VAR for sector index {sector}")
-            continue
-        scores[sector] = var
+            
+        df_short = df_long.tail(TRIGGER_LOOKBACK + 1).reset_index(drop=True)
+
+        var_long = _volatility_adjusted_return(df_long)
+        var_short = _volatility_adjusted_return(df_short)
+
+        if var_long is not None:
+            long_scores[sector] = var_long
+        if var_short is not None:
+            short_scores[sector] = var_short
+            
         time.sleep(0.15)
-    return pd.Series(scores, dtype=float)
+        
+    return pd.Series(long_scores, dtype=float), pd.Series(short_scores, dtype=float)
 
 
 def _load_sector_constituents(sector):
@@ -132,10 +198,10 @@ def _load_sector_constituents(sector):
     return constituents
 
 
-def _rank_sector_stocks(sector, access_token):
+def _rank_sector_stocks(sector, access_token, lookback):
     ranked = []
     for instrument_key, stock_name in _load_sector_constituents(sector):
-        df = _fetch_history(instrument_key, access_token, LOOKBACK_DAYS)
+        df = _fetch_history(instrument_key, access_token, lookback)
         if df is None:
             continue
         cum_return = _cumulative_return(df)
@@ -151,14 +217,20 @@ def _format_stock_list(stocks):
     return ", ".join(f"{name} ({pct * 100:+.1f}%)" for name, pct in stocks)
 
 
-def _format_sector_block(title, ranked_sectors, access_token):
+def _format_sector_block(title, df_subset, access_token):
     lines = [f"\n>>> {title} <<<"]
-    for sector, z_score in ranked_sectors.items():
-        lines.append(f"{sector} (Z={z_score:+.2f})")
-        stocks = _rank_sector_stocks(sector, access_token)
+    if df_subset.empty:
+        lines.append("  (No sectors currently match this setup)")
+        return lines
+
+    for sector, row in df_subset.iterrows():
+        lines.append(f"{sector} (5d Z={row['Trigger_Z']:+.2f} | 20d Z={row['Trend_Z']:+.2f})")
+        stocks = _rank_sector_stocks(sector, access_token, TRIGGER_LOOKBACK)
+        
         if not stocks:
             lines.append("  (no stock data in sectors/" + sector + ".csv)")
             continue
+            
         if len(stocks) <= TOP_N_STOCKS * 2:
             lines.append("  " + _format_stock_list(stocks))
         else:
@@ -174,17 +246,26 @@ def run():
             "Configure UPSTOX_TOKEN or provide a token file at upstox_token.txt"
         )
 
-    var_scores = _sector_var_scores(access_token)
-    if len(var_scores) < 2:
+    long_scores, short_scores = _sector_var_scores(access_token)
+    if len(long_scores) < 2 or len(short_scores) < 2:
         raise ValueError("Not enough sector index data to rank sectors")
 
-    z_scores = _zscore(var_scores).sort_values(ascending=False)
-    strongest = z_scores.head(TOP_N_SECTORS)
-    weakest = z_scores.tail(TOP_N_SECTORS).sort_values()
+    z_long = _zscore(long_scores)
+    z_short = _zscore(short_scores)
 
-    lines = ["SECTOR STRENGTH SUMMARY", "=" * 50]
-    lines += _format_sector_block("STRONGEST SECTORS", strongest, access_token)
-    lines += _format_sector_block("WEAKEST SECTORS", weakest, access_token)
+    df_scores = pd.DataFrame({
+        "Trend_Z": z_long,
+        "Trigger_Z": z_short
+    })
+
+    leaders = df_scores[(df_scores["Trend_Z"] > 0) & (df_scores["Trigger_Z"] > 0)].sort_values(by="Trigger_Z", ascending=False)
+    reversals = df_scores[(df_scores["Trend_Z"] < 0) & (df_scores["Trigger_Z"] > 0.5)].sort_values(by="Trigger_Z", ascending=False)
+    laggards = df_scores[df_scores["Trigger_Z"] < 0].sort_values(by="Trigger_Z", ascending=True)
+
+    lines = ["DUAL-WINDOW SECTOR STRENGTH SUMMARY", "=" * 50]
+    lines += _format_sector_block("TREND LEADERS (Strong Baseline + Immediate Bids)", leaders, access_token)
+    lines += _format_sector_block("OVERSOLD REVERSALS (Weak Baseline + Sudden Bids)", reversals, access_token)
+    lines += _format_sector_block("SECTOR WEAKNESS (Capital Outflow Last 5 Days)", laggards, access_token)
 
     summary = "\n".join(lines)
     print(summary)
@@ -194,7 +275,7 @@ def run():
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Daily Nifty sector strength + top/bottom stock alert.")
+    parser = argparse.ArgumentParser(description="Dual-Window Nifty sector strength + stock alert.")
     parser.parse_args()
     run()
 

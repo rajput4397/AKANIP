@@ -394,3 +394,65 @@ def check_ema20_bearish_rejection(
 
     matched, price = _evaluate_at_index(len(working_df) - 1)
     return (matched, price) if matched else (False, None)
+
+
+
+def check_ema20_bullish_support(
+    df,
+    proximity_threshold=0.015,
+    interval='daily',
+):
+    """
+    Evaluates if EMAs (20, 50, 100) are in an uptrend (sloping up and stacked
+    20 > 50 > 100). Then checks if the current candle found support at the 20 EMA by either:
+    1. Opening below and closing above the 20 EMA.
+    2. Opening and closing above the 20 EMA, being a green candle, with the Open
+       very close to the 20 EMA.
+
+    The condition is evaluated on the latest candle for every interval.
+    """
+    if df is None or df.empty:
+        return False, None
+
+    working_df = df.copy()
+    if len(working_df) < 100:
+        return False, None
+
+    def _evaluate_at_index(index):
+        if index <= 0:
+            return False, None
+
+        price_window = working_df.iloc[: index + 1].copy()
+        for period in [20, 50, 100]:
+            price_window[f'EMA_{period}'] = price_window['Close'].ewm(span=period, adjust=False).mean()
+
+        latest = price_window.iloc[-1]
+        prev = price_window.iloc[-2]
+
+        slopes_positive = (
+            latest['EMA_20'] > prev['EMA_20'] and
+            latest['EMA_50'] > prev['EMA_50'] and
+            latest['EMA_100'] > prev['EMA_100']
+        )
+        bullish_stack = (latest['EMA_20'] > latest['EMA_50'] > latest['EMA_100'])
+
+        if not (slopes_positive and bullish_stack):
+            return False, None
+
+        open_price = latest['Open']
+        close_price = latest['Close']
+        ema_20 = latest['EMA_20']
+
+        crossed_up = (open_price < ema_20) and (close_price > ema_20)
+        both_above = (open_price > ema_20) and (close_price > ema_20)
+        is_green_candle = close_price > open_price
+        pct_diff_open = abs(ema_20 - open_price) / ema_20
+        open_is_close = pct_diff_open <= proximity_threshold
+        supported_from_above = both_above and is_green_candle and open_is_close
+
+        if crossed_up or supported_from_above:
+            return True, close_price
+        return False, None
+
+    matched, price = _evaluate_at_index(len(working_df) - 1)
+    return (matched, price) if matched else (False, None)
