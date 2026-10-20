@@ -64,9 +64,12 @@ def run_scan(scan: dict, config_path: Path) -> str:
     scan_name = scan.get("name", "Options Spread Scan")
     expiry_date = scan.get("expiry_date")
     default_strike_step = scan.get("strike_step", 20)
-    
+    spread_type = str(scan.get("spread_type", "bear")).strip().lower()
+
     if not expiry_date:
         raise ValueError(f"Scan '{scan_name}': must define 'expiry_date' in config.")
+    if spread_type not in ("call", "bear"):
+        raise ValueError(f"Scan '{scan_name}': spread_type must be 'call' or 'bear', got '{spread_type}'")
 
     # Token Loading
     access_token = os.getenv("UPSTOX_TOKEN", "").strip()
@@ -108,24 +111,27 @@ def run_scan(scan: dict, config_path: Path) -> str:
         raise ValueError(f"Scan '{scan_name}': no instrument keys found in {csv_path}")
 
     log.info(f"Starting Scan '{scan_name}' for {len(instrument_keys)} instruments (Expiry: {expiry_date})")
-    
+
     final_summary = f"\n{'='*50}\n{' '*12}{scan_name.upper()} SUMMARY\n{'='*50}\n"
+    missing_chain_stocks = []
 
     for key in instrument_keys:
         display_name = key_to_stock[key]
         strike_step = key_to_step[key]
-        
+
         try:
             spot_price = get_spot_price(key, headers)
             if spot_price == 0:
                 log.warning(f"Failed to fetch spot for {display_name}. Skipping.")
+                missing_chain_stocks.append(f"{display_name} (no spot price)")
                 continue
-                
+
             lot_size = get_lot_size(key, headers)
             chain_data = get_option_chain(key, expiry_date, headers)
 
             if not chain_data:
                 log.warning(f"No chain data found for {display_name}. Skipping.")
+                missing_chain_stocks.append(f"{display_name} (no option chain for {expiry_date})")
                 continue
 
             # --- NEW: Dynamically determine the strike step ---
@@ -161,46 +167,58 @@ def run_scan(scan: dict, config_path: Path) -> str:
 
             if None in (atm_ce_ltp, otm_ce_ltp, atm_pe_ltp, otm_pe_ltp):
                 log.warning(f"Incomplete chain data for {display_name} (Step used: {dynamic_strike_step}). Skipping.")
+                missing_chain_stocks.append(f"{display_name} (incomplete chain at {atm_strike} strike)")
                 continue
 
             def make_leg(key_id, txn):
                 return {"instrument_key": key_id, "quantity": lot_size, "product": "D", "transaction_type": txn}
 
-            # 1. Bull Call Spread
-            buc_combined_margin = get_margin(headers, [make_leg(atm_ce_key, "BUY"), make_leg(otm_ce_key, "SELL")])
-            buc_risk = (atm_ce_ltp - otm_ce_ltp) * lot_size
-            buc_reward = (dynamic_strike_step - (atm_ce_ltp - otm_ce_ltp)) * lot_size
-            buc_rr = buc_reward / buc_risk if buc_risk > 0 else 0
-
-            # 2. Bear Put Spread
-            bp_combined_margin = get_margin(headers, [make_leg(atm_pe_key, "BUY"), make_leg(otm_pe_key, "SELL")])
-            bp_risk = (atm_pe_ltp - otm_pe_ltp) * lot_size
-            bp_reward = (dynamic_strike_step - (atm_pe_ltp - otm_pe_ltp)) * lot_size
-            bp_rr = bp_reward / bp_risk if bp_risk > 0 else 0
-            
-            
-# BULL CALL SPREAD (Debit)
-# Long Leg:  1x {atm_strike} CE @ ₹{atm_ce_ltp:.2f}
-# Short Leg: 1x {otm_call} CE @ ₹{otm_ce_ltp:.2f}
-# Reward/Risk: {buc_rr:.2f}
-# Combined Final Margin Needed: ₹{buc_combined_margin:,.2f}
-            stock_summary= f"""
+            if spread_type == "call":
+                combined_margin = get_margin(headers, [make_leg(atm_ce_key, "BUY"), make_leg(otm_ce_key, "SELL")])
+                risk = (atm_ce_ltp - otm_ce_ltp) * lot_size
+                reward = (dynamic_strike_step - (atm_ce_ltp - otm_ce_ltp)) * lot_size
+                reward_risk = reward / risk if risk > 0 else 0
+                stock_summary = f"""
 >>> {display_name} (Spot: {spot_price}) <<<
 
-
+BULL CALL SPREAD (Debit)
+Long Leg:  1x {atm_strike} CE @ ₹{atm_ce_ltp:.2f}
+Short Leg: 1x {otm_call} CE @ ₹{otm_ce_ltp:.2f}
+Reward/Risk: {reward_risk:.2f}
+Combined Final Margin Needed: ₹{combined_margin:,.2f}
+{'-'*50}
+"""
+            else:
+                combined_margin = get_margin(headers, [make_leg(atm_pe_key, "BUY"), make_leg(otm_pe_key, "SELL")])
+                risk = (atm_pe_ltp - otm_pe_ltp) * lot_size
+                reward = (dynamic_strike_step - (atm_pe_ltp - otm_pe_ltp)) * lot_size
+                reward_risk = reward / risk if risk > 0 else 0
+                stock_summary = f"""
+>>> {display_name} (Spot: {spot_price}) <<<
 
 BEAR PUT SPREAD (Debit)
 Long Leg:  1x {atm_strike} PE @ ₹{atm_pe_ltp:.2f}
 Short Leg: 1x {otm_put} PE @ ₹{otm_pe_ltp:.2f}
-Reward/Risk: {bp_rr:.2f}
-Combined Final Margin Needed: ₹{bp_combined_margin:,.2f}
+Reward/Risk: {reward_risk:.2f}
+Combined Final Margin Needed: ₹{combined_margin:,.2f}
 {'-'*50}
 """
             log.info(stock_summary)
             final_summary += stock_summary
         except Exception as e:
             log.exception(f"Error processing {display_name}: {e}")
+            missing_chain_stocks.append(f"{display_name} (error: {e})")
 
+    if missing_chain_stocks:
+        final_summary += f"\n>>> NO OPTION CHAIN / SKIPPED ({len(missing_chain_stocks)}) <<<\n"
+        final_summary += "\n".join(f"  - {entry}" for entry in missing_chain_stocks) + "\n"
+        log.warning(
+            "Stocks with missing/incomplete option chain for '%s': %s",
+            scan_name,
+            "; ".join(missing_chain_stocks),
+        )
+
+    log.info(final_summary)
     print(final_summary)
     return final_summary
 

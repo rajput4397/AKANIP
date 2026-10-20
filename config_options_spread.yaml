@@ -1,0 +1,80 @@
+scans:
+  - name: AUTO options spread scan
+    provider: upstox_options
+    csv_path: sectors/AUTO.csv
+    instrument_key_column: instrument_key
+    stock_column: Symbol
+    expiry_date: "2026-10-27"
+    spread_type: bear
+
+  - name: BANK options spread scan
+    provider: upstox_options
+    csv_path: sectors/BANK.csv
+    instrument_key_column: instrument_key
+    stock_column: Symbol
+    expiry_date: "2026-10-27"
+    spread_type: bear
+
+  - name: ENERGY options spread scan
+    provider: upstox_options
+    csv_path: sectors/ENERGY.csv
+    instrument_key_column: instrument_key
+    stock_column: Symbol
+    expiry_date: "2026-10-27"
+    spread_type: bear
+
+  - name: FINSERV options spread scan
+    provider: upstox_options
+    csv_path: sectors/FINSERV.csv
+    instrument_key_column: instrument_key
+    stock_column: Symbol
+    expiry_date: "2026-10-27"
+    spread_type: bear
+
+  - name: FMCG options spread scan
+    provider: upstox_options
+    csv_path: sectors/FMCG.csv
+    instrument_key_column: instrument_key
+    stock_column: Symbol
+    expiry_date: "2026-10-27"
+    spread_type: bear
+
+  - name: IT options spread scan
+    provider: upstox_options
+    csv_path: sectors/IT.csv
+    instrument_key_column: instrument_key
+    stock_column: Symbol
+    expiry_date: "2026-10-27"
+    spread_type: bear
+
+  - name: MEDIA options spread scan
+    provider: upstox_options
+    csv_path: sectors/MEDIA.csv
+    instrument_key_column: instrument_key
+    stock_column: Symbol
+    expiry_date: "2026-10-27"
+    spread_type: bear
+
+  - name: METAL options spread scan
+    provider: upstox_options
+    csv_path: sectors/METAL.csv
+    instrument_key_column: instrument_key
+    stock_column: Symbol
+    expiry_date: "2026-10-27"
+    spread_type: bear
+
+  - name: PHARMA options spread scan
+    provider: upstox_options
+    csv_path: sectors/PHARMA.csv
+    instrument_key_column: instrument_key
+    stock_column: Symbol
+    expiry_date: "2026-10-27"
+    spread_type: bear
+
+  - name: REALTY options spread scan
+    provider: upstox_options
+    csv_path: sectors/REALTY.csv
+    instrument_key_column: instrument_key
+    stock_column: Symbol
+    expiry_date: "2026-10-27"
+    spread_type: bear
