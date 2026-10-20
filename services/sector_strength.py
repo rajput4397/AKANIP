@@ -26,7 +26,6 @@ SECTOR_INDEX_INSTRUMENT_KEYS = {
     "FINSERV": "NSE_INDEX|Nifty Fin Service",
     "FMCG": "NSE_INDEX|Nifty FMCG",
     "IT": "NSE_INDEX|Nifty IT",
-    "MEDIA": "NSE_INDEX|Nifty Media",
     "METAL": "NSE_INDEX|Nifty Metal",
     "PHARMA": "NSE_INDEX|Nifty Pharma",
     "REALTY": "NSE_INDEX|Nifty Realty",
