@@ -21,6 +21,7 @@ SECTORS_DIR = PROJECT_ROOT / "sectors"
 
 SECTOR_INDEX_INSTRUMENT_KEYS = {
     "AUTO": "NSE_INDEX|Nifty Auto",
+    "PSU_BANK": "NSE_INDEX|Nifty PSU Bank",
     "BANK": "NSE_INDEX|Nifty Bank",
     "ENERGY": "NSE_INDEX|Nifty Energy",
     "FINSERV": "NSE_INDEX|Nifty Fin Service",

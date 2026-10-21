@@ -1,7 +1,7 @@
 scans:
   - name: NSE options daily
     provider: upstox
-    csv_path: indian_options.csv
+    csv_path: indian_options_daily.csv
     instrument_key_column: instrument_key
     stock_column: stock
     interval: daily
