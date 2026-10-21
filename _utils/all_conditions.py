@@ -51,17 +51,20 @@ def check_above_ema_20(
     df_weekly = working_df.resample('W-FRI', on='Date').agg({
         'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last'
     }).dropna()
-    df_monthly = working_df.resample('ME', on='Date').agg({
-        'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last'
-    }).dropna()
-    if len(df_weekly) < 2 or len(df_monthly) < 2:
+    if len(df_weekly) < 2:
         return False, None
 
     last_week = df_weekly.iloc[-2]
-    last_month = df_monthly.iloc[-2]
     week_positive = last_week['Close'] > last_week['Open']
-    month_positive = last_month['Close'] > last_month['Open']
-    month_pct_gain = (last_month['Close'] - last_month['Open']) / last_month['Open'] * 100
+
+    # "Last month" is the trailing 22 trading days before today (~1 trading month),
+    # not the last calendar month, so it doesn't depend on where today falls in the month.
+    month_window = working_df.iloc[-23:-1]
+    month_open = month_window['Open'].iloc[0]
+    month_close = month_window['Close'].iloc[-1]
+    month_positive = month_close > month_open
+    month_pct_gain = (month_close - month_open) / month_open * 100 if month_open else -float('inf')
+
     if week_positive and month_positive and month_pct_gain >= min_previous_month_gain_pct:
         return True, latest['Close']
     return False, None
