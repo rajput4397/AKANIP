@@ -22,8 +22,9 @@ scans:
     instrument_key_column: instrument_key
     stock_column: stock
     interval: daily
+    history_days: 400
     token_path: upstox_token.txt
-    include_today_intraday: false
+    include_today_intraday: true
     strategies:
       - function: check_above_ema_20
         parameters:

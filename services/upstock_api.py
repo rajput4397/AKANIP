@@ -197,8 +197,8 @@ def run_scan(scan, config_path):
     if not instrument_keys:
         raise ValueError(f"Scan '{scan_name}': no instrument keys found in {csv_path}")
 
-    default_history_days = {"daily": 365, "weekly": 3650, "15min": 29, "monthly": 3650}
-    maximum_history_days = {"daily": 365, "weekly": 3650, "15min": 29, "monthly": 3650}
+    default_history_days = {"daily": 400, "weekly": 3650, "15min": 29, "monthly": 3650}
+    maximum_history_days = {"daily": 400, "weekly": 3650, "15min": 29, "monthly": 3650}
     history_days = scan.get("history_days", default_history_days[interval])
     if not isinstance(history_days, int) or history_days <= 0:
         raise ValueError(f"Scan '{scan_name}': history_days must be a positive integer")
